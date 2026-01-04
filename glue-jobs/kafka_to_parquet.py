@@ -2,12 +2,12 @@
 Simple Batch Kafka to Parquet Job
 Processes Kafka messages and writes to local/parquet format (no Iceberg for testing)
 """
+import sys
+import os
 from pyspark.context import SparkContext
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import from_json, col, current_timestamp
 from pyspark.sql.types import StructType, StructField, IntegerType, StringType
-import sys
-import os
 
 # Parse arguments
 args = {}

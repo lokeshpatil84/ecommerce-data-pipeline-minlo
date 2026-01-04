@@ -1,7 +1,7 @@
 import sys
 import os
 from pyspark.context import SparkContext
-from pyspark.sql import DataFrame, SparkSession
+from pyspark.sql import SparkSession
 from pyspark.sql.functions import col, from_json, coalesce, from_unixtime, current_timestamp
 from pyspark.sql.types import (
     StructType, StructField, IntegerType, StringType, DoubleType, LongType
@@ -148,7 +148,7 @@ query = streaming_df.writeStream \
     .option("checkpointLocation", checkpoint_location) \
     .start()
 
-print(f"Streaming query started. Waiting for data...")
+print("Streaming query started. Waiting for data...")
 query.awaitTermination()
 print("Pipeline completed.")
 

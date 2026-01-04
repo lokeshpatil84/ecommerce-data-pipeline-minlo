@@ -2,12 +2,12 @@
 Batch Kafka to Iceberg Job
 Processes existing Kafka messages and writes to S3/MinIO via Iceberg
 """
+import sys
+import os
 from pyspark.context import SparkContext
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import from_json, col, current_timestamp
 from pyspark.sql.types import StructType, StructField, IntegerType, StringType
-import sys
-import os
 
 # Parse arguments
 args = {}

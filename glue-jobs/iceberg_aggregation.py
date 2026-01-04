@@ -1,11 +1,13 @@
 import sys
-from awsglue.transforms import *
+import os
+from awsglue.transforms import ApplyMapping
 from awsglue.utils import getResolvedOptions
 from pyspark.context import SparkContext
 from awsglue.context import GlueContext
 from awsglue.job import Job
-from pyspark.sql.functions import *
-from pyspark.sql.window import Window
+from pyspark.sql.functions import (
+    col, date_trunc, count, sum, avg, countDistinct
+)
 
 args = getResolvedOptions(sys.argv, [
     'JOB_NAME',
@@ -29,7 +31,6 @@ spark.conf.set("spark.sql.catalog.s3a.catalog-impl", "org.apache.iceberg.aws.glu
 spark.conf.set("spark.sql.catalog.s3a.io-impl", "org.apache.iceberg.aws.s3.S3FileIO")
 
 # MinIO/S3 Configuration (without real AWS credentials for local)
-import os
 s3_endpoint = os.environ.get("AWS_ENDPOINT_URL", "http://minio:9000")
 s3_access_key = os.environ.get("AWS_ACCESS_KEY_ID", "admin")
 s3_secret_key = os.environ.get("AWS_SECRET_ACCESS_KEY", "admin123")

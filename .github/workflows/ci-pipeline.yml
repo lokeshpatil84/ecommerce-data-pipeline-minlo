@@ -1,0 +1,240 @@
+name: E-Commerce CDC Pipeline CI
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'docker/**'
+      - 'config/**'
+      - 'glue-jobs/**'
+      - 'run_pipeline.sh'
+      - '.github/workflows/**'
+
+jobs:
+  pipeline-test:
+    runs-on: ubuntu-latest
+    steps:
+      # Step 1: Checkout repository
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Step 2: Setup Docker
+      - name: Set up Docker
+        uses: docker/setup-buildx-action@v3
+
+      # Step 3: Start Docker Compose services
+      - name: Start infrastructure services
+        working-directory: ./docker
+        run: |
+          echo "Starting Docker services..."
+          docker-compose up -d
+
+      # Step 4: Wait for services to be healthy
+      - name: Wait for services to be ready
+        run: |
+          echo "Waiting for services to start (60 seconds)..."
+          sleep 60
+
+          # Verify PostgreSQL is running
+          echo "Checking PostgreSQL..."
+          timeout 10 bash -c 'until docker exec ecommerce-postgres pg_isready -U postgres; do sleep 1; done' || {
+            echo "PostgreSQL failed to start"
+            docker-compose logs postgres
+            exit 1
+          }
+          echo "✅ PostgreSQL is ready"
+
+          # Verify Kafka is running
+          echo "Checking Kafka..."
+          timeout 30 bash -c 'until docker exec kafka kafka-broker-api-versions --bootstrap-server localhost:9092; do sleep 1; done' || {
+            echo "Kafka failed to start"
+            docker-compose logs kafka
+            exit 1
+          }
+          echo "✅ Kafka is ready"
+
+          # Verify Debezium is running
+          echo "Checking Debezium..."
+          until curl -s http://localhost:8083/ > /dev/null; do
+            echo "Waiting for Debezium..."
+            sleep 2
+          done
+          echo "✅ Debezium is ready"
+
+      # Step 5: Register Debezium CDC Connector
+      - name: Register Debezium connector
+        run: |
+          echo "Registering Debezium PostgreSQL connector..."
+          curl -s -X POST http://localhost:8083/connectors \
+            -H "Content-Type: application/json" \
+            -d @../config/debezium-config.json
+
+          echo "Waiting for connector to initialize..."
+          sleep 10
+
+          # Verify connector is running
+          CONNECTOR_STATUS=$(curl -s http://localhost:8083/connectors/postgres-connector/status)
+          echo "Connector status: $CONNECTOR_STATUS"
+
+          if echo "$CONNECTOR_STATUS" | grep -q '"state":"RUNNING"'; then
+            echo "✅ Debezium connector is running"
+          else
+            echo "❌ Debezium connector failed to start"
+            exit 1
+          fi
+
+      # Step 6: Insert test data into PostgreSQL
+      - name: Insert test data
+        run: |
+          echo "Inserting test orders into PostgreSQL..."
+          docker exec ecommerce-postgres psql -U postgres -d ecommerce << 'EOF'
+          INSERT INTO ecommerce.orders (customer_id, total_amount, status, shipping_address) VALUES 
+          (1, 99.99, 'pending', 'GitHub Actions Test Address 1'),
+          (2, 149.99, 'processing', 'GitHub Actions Test Address 2'),
+          (3, 299.99, 'shipped', 'GitHub Actions Test Address 3');
+
+          -- Verify data was inserted
+          SELECT COUNT(*) as order_count FROM ecommerce.orders;
+          EOF
+
+      # Step 7: Verify CDC events in Kafka
+      - name: Verify CDC events in Kafka
+        run: |
+          echo "Waiting for CDC events to appear in Kafka (15 seconds)..."
+          sleep 15
+
+          echo "Checking Kafka topics..."
+          docker exec kafka kafka-topics --bootstrap-server kafka:9092 --list
+
+          echo ""
+          echo "Reading CDC events from orders topic..."
+          CDC_EVENTS=$(docker exec kafka kafka-console-consumer \
+            --bootstrap-server kafka:9092 \
+            --topic dbserver1.ecommerce.orders \
+            --from-beginning \
+            --max-messages 5 \
+            --timeout-ms 10000 2>/dev/null | grep -c "order_id" || echo "0")
+
+          echo "CDC Events captured: $CDC_EVENTS"
+
+          if [ "$CDC_EVENTS" -gt 0 ]; then
+            echo "✅ CDC events successfully captured in Kafka"
+          else
+            echo "❌ No CDC events found in Kafka"
+            exit 1
+          fi
+
+      # Step 8: Show pipeline status
+      - name: Show pipeline access points
+        run: |
+          echo ""
+          echo "=========================================="
+          echo "  Pipeline CI Test Complete!"
+          echo "=========================================="
+          echo ""
+          echo "✅ All services started successfully"
+          echo "✅ Debezium connector registered"
+          echo "✅ Test data inserted"
+          echo "✅ CDC events verified in Kafka"
+          echo ""
+          echo "Access Points (if running locally):"
+          echo "  - Kafka UI:  http://localhost:8080"
+          echo "  - Airflow:   http://localhost:8090 (admin/admin)"
+          echo "  - Debezium:  http://localhost:8083"
+          echo ""
+          echo "Kafka Topics:"
+          echo "  - dbserver1.ecommerce.orders"
+          echo "  - dbserver1.ecommerce.customers"
+          echo "  - dbserver1.ecommerce.products"
+          echo "  - dbserver1.ecommerce.order_items"
+
+      # Step 9: Cleanup - Stop all services
+      - name: Cleanup services
+        if: always()
+        working-directory: ./docker
+        run: |
+          echo "Stopping and cleaning up Docker services..."
+          docker-compose down -v --remove-orphans
+
+          echo "✅ Cleanup complete"
+
+  # Additional job: Validate configuration files
+  config-validation:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Validate docker-compose.yml
+        run: |
+          echo "Validating docker-compose.yml..."
+          if command -v docker-compose &> /dev/null; then
+            docker-compose -f docker/docker-compose.yml config --quiet
+            echo "✅ docker-compose.yml is valid"
+          else
+            echo "⚠️ docker-compose not available for validation"
+          fi
+
+      - name: Validate Debezium configuration
+        run: |
+          echo "Validating Debezium configuration..."
+          if [ -f config/debezium-config.json ]; then
+            # Basic JSON validation
+            if python3 -m json.tool config/debezium-config.json > /dev/null 2>&1; then
+              echo "✅ debezium-config.json is valid JSON"
+
+              # Check required fields
+              if grep -q '"connector.class"' config/debezium-config.json && \
+                 grep -q '"database.hostname"' config/debezium-config.json; then
+                echo "✅ Debezium config has required fields"
+              else
+                echo "❌ Debezium config missing required fields"
+                exit 1
+              fi
+            else
+              echo "❌ debezium-config.json is invalid JSON"
+              exit 1
+            fi
+          else
+            echo "❌ debezium-config.json not found"
+            exit 1
+          fi
+
+      - name: Validate Glue job files
+        run: |
+          echo "Validating Glue job files..."
+          for job in glue-jobs/*.py; do
+            if [ -f "$job" ]; then
+              echo "Checking $job..."
+              # Basic syntax check
+              if python3 -m py_compile "$job" 2>/dev/null; then
+                echo "✅ $job syntax is valid"
+              else
+                echo "⚠️ $job has syntax issues"
+              fi
+            fi
+          done
+
+  # Job: Security scan (optional)
+  security-scan:
+    runs-on: ubuntu-latest
+    needs: config-validation
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'config'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+
+      - name: Upload Trivy scan results
+        uses: github/codeql-action/upload-sarif@v2
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+

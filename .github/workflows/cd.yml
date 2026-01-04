@@ -76,13 +76,13 @@ jobs:
       - name: Validate Docker Compose
         run: |
           cd docker
-          docker-compose config
+          docker compose config
           echo "Docker Compose valid"
 
       - name: Build services
         run: |
           cd docker
-          docker-compose build --quiet
+          docker compose build --quiet
           echo "Docker images built"
         continue-on-error: true
 

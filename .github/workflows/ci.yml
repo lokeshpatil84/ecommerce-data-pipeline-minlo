@@ -63,8 +63,10 @@ jobs:
         
       - name: Validate Docker Compose
         run: |
-          pip install docker-compose
-          docker-compose -f docker/docker-compose.yml config > /dev/null
+          # Docker Compose V2 is built-in (docker compose), not docker-compose Python package
+          docker compose version
+          cd docker
+          docker compose -f docker-compose.yml config > /dev/null
           echo "✓ Docker Compose config valid"
 
   test-python:

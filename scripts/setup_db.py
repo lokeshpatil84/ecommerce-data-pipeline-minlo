@@ -60,3 +60,4 @@ conn.close()
 
 print(f"Database setup complete: {count} orders")
 sys.exit(0)
+

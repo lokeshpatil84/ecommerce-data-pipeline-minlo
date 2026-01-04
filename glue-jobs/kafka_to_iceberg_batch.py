@@ -30,7 +30,7 @@ sc = SparkContext()
 spark = SparkSession.builder \
     .appName(args.get('JOB_NAME', 'kafka-to-iceberg-batch')) \
     .config("spark.sql.extensions",
-             "org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions") \
+            "org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions") \
     .config("spark.sql.catalog.s3a", "org.apache.iceberg.spark.SparkCatalog") \
     .config("spark.sql.catalog.s3a.warehouse", args.get('iceberg_warehouse', 's3a://warehouse/')) \
     .getOrCreate()
@@ -137,3 +137,4 @@ else:
 
 print("Batch job completed!")
 spark.stop()
+

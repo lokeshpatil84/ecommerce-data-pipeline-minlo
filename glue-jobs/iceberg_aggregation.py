@@ -5,7 +5,8 @@ from awsglue.context import GlueContext
 from awsglue.job import Job
 from awsglue.utils import getResolvedOptions
 from pyspark.context import SparkContext
-from pyspark.sql.functions import avg, col, count, countDistinct, date_trunc, sum
+from pyspark.sql.functions import (avg, col, count, countDistinct, date_trunc,
+                                   sum)
 
 args = getResolvedOptions(sys.argv, ["JOB_NAME", "iceberg_warehouse", "database_name"])
 

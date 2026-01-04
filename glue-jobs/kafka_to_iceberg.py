@@ -3,21 +3,10 @@ import sys
 
 from pyspark.context import SparkContext
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import (
-    coalesce,
-    col,
-    current_timestamp,
-    from_json,
-    from_unixtime,
-)
-from pyspark.sql.types import (
-    DoubleType,
-    IntegerType,
-    LongType,
-    StringType,
-    StructField,
-    StructType,
-)
+from pyspark.sql.functions import (coalesce, col, current_timestamp, from_json,
+                                   from_unixtime)
+from pyspark.sql.types import (DoubleType, IntegerType, LongType, StringType,
+                               StructField, StructType)
 
 # Parse command line arguments
 args = {}

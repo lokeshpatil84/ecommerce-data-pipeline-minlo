@@ -7,13 +7,8 @@ import sys
 
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import col, from_json
-from pyspark.sql.types import (
-    BigIntType,
-    IntegerType,
-    StringType,
-    StructField,
-    StructType,
-)
+from pyspark.sql.types import (BigIntType, IntegerType, StringType,
+                               StructField, StructType)
 
 # Parse command line arguments
 args = {}

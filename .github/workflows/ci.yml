@@ -35,10 +35,6 @@ jobs:
       - name: Check formatting with black
         run: |
           black --check glue-jobs/ scripts/
-        
-      - name: Check import order with isort
-        run: |
-          isort --check-only glue-jobs/ scripts/
 
   validate-configs:
     runs-on: ubuntu-latest

@@ -4,8 +4,8 @@ Processes existing Kafka messages and writes to S3/MinIO via Iceberg
 """
 from pyspark.context import SparkContext
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import from_json, col, coalesce, from_unixtime, current_timestamp
-from pyspark.sql.types import StructType, StructField, IntegerType, StringType, DoubleType, LongType
+from pyspark.sql.functions import from_json, col, current_timestamp
+from pyspark.sql.types import StructType, StructField, IntegerType, StringType
 import sys
 import os
 
@@ -102,7 +102,7 @@ if df.count() > 0:
 
     # Create Iceberg table
     table_name = f"s3a.{args.get('database_name', 'ecommerce')}.{args.get('table_name', 'orders')}"
-    
+
     spark.sql(f"""
         CREATE TABLE IF NOT EXISTS {table_name} (
             order_id INT,
@@ -126,7 +126,7 @@ if df.count() > 0:
     final_df.writeTo(table_name).option("mergeSchema", "true").overwritePartitions()
 
     print(f"Successfully wrote {final_df.count()} records to Iceberg table: {table_name}")
-    
+
     # Show sample data
     print("\nSample data written:")
     spark.sql(f"SELECT * FROM {table_name} LIMIT 5").show()

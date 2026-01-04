@@ -2,8 +2,10 @@ import sys
 import os
 from pyspark.context import SparkContext
 from pyspark.sql import DataFrame, SparkSession
-from pyspark.sql.functions import *
-from pyspark.sql.types import *
+from pyspark.sql.functions import col, from_json, coalesce, from_unixtime, current_timestamp
+from pyspark.sql.types import (
+    StructType, StructField, IntegerType, StringType, DoubleType, LongType
+)
 
 # Parse command line arguments
 args = {}
@@ -47,7 +49,7 @@ spark = SparkSession.builder \
     .config("spark.sql.catalog.s3a.s3.secret.key", s3_secret_key) \
     .getOrCreate()
 
-print(f"Starting Kafka to Iceberg pipeline...")
+print("Starting Kafka to Iceberg pipeline...")
 print(f"Kafka brokers: {args.get('kafka_bootstrap_servers')}")
 print(f"Topic: {args.get('kafka_topic')}")
 print(f"Iceberg warehouse: {args.get('iceberg_warehouse')}")
@@ -82,13 +84,14 @@ cdc_schema = StructType([
     StructField("ts_ms", LongType())
 ])
 
+
 def process_batch(df, epoch_id):
     if df.count() > 0:
         # Parse Kafka value
         parsed_df = df.select(
             from_json(col("value").cast("string"), cdc_schema).alias("data")
         ).select("data.*")
-        
+
         # Process based on operation type
         final_df = parsed_df.select(
             coalesce(col("after.order_id"), col("before.order_id")).alias("order_id"),
@@ -101,10 +104,10 @@ def process_batch(df, epoch_id):
             from_unixtime(col("ts_ms") / 1000).cast("timestamp").alias("event_time"),
             current_timestamp().alias("processed_time")
         ).filter(col("order_id").isNotNull())
-        
+
         # Write to Iceberg table
         table_name = f"s3a.{args.get('database_name', 'ecommerce')}.{args.get('table_name', 'orders')}"
-        
+
         # Create table if not exists
         spark.sql(f"""
             CREATE TABLE IF NOT EXISTS {table_name} (
@@ -125,11 +128,12 @@ def process_batch(df, epoch_id):
                 'write.parquet.compression-codec' = 'snappy'
             )
         """)
-        
+
         # Write data
         final_df.writeTo(table_name).option("mergeSchema", "true").append()
-        
+
         print(f"Processed {final_df.count()} records in epoch {epoch_id}")
+
 
 # Start streaming query
 streaming_df = spark.readStream \

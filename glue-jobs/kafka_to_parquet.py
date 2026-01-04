@@ -5,7 +5,7 @@ Processes Kafka messages and writes to local/parquet format (no Iceberg for test
 from pyspark.context import SparkContext
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import from_json, col, current_timestamp
-from pyspark.sql.types import StructType, StructField, IntegerType, StringType, DoubleType
+from pyspark.sql.types import StructType, StructField, IntegerType, StringType
 import sys
 import os
 
@@ -82,7 +82,7 @@ if df.count() > 0:
         current_timestamp().alias("processed_time")
     ).filter(col("order_id").isNotNull())
 
-    print(f"Parsed {final_df.count()} valid valid records")
+    print(f"Parsed {final_df.count()} valid records")
 
     # Write to local parquet file
     output_path = "/workspace/warehouse/orders_parquet"

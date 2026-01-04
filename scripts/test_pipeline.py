@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Run pipeline test"""
-import psycopg2
-import time
 import random
 import sys
+import time
+
+import psycopg2
 
 print("Running E-Commerce Pipeline Test")
 print("=" * 50)

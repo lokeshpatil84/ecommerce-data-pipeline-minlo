@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Test database connection"""
-import psycopg2
 import sys
+
+import psycopg2
 
 conn = psycopg2.connect(
     host="localhost",

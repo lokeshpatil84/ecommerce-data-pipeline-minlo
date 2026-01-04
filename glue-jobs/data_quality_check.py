@@ -1,8 +1,9 @@
 import sys
-from awsglue.utils import getResolvedOptions
-from pyspark.context import SparkContext
+
 from awsglue.context import GlueContext
 from awsglue.job import Job
+from awsglue.utils import getResolvedOptions
+from pyspark.context import SparkContext
 from pyspark.sql.functions import col, current_timestamp
 
 args = getResolvedOptions(sys.argv, ["JOB_NAME", "iceberg_warehouse", "database_name"])

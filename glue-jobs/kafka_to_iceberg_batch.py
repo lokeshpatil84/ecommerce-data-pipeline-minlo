@@ -46,7 +46,7 @@ spark.conf.set("spark.hadoop.fs.s3a.impl", "org.apache.hadoop.fs.s3a.S3AFileSyst
 spark.conf.set("spark.hadoop.fs.s3a.path.style.access", "true")
 spark.conf.set("spark.hadoop.fs.s3a.connection.ssl.enabled", "false")
 
-print(f"Starting Batch Kafka to Iceberg pipeline...")
+print("Starting Batch Kafka to Iceberg pipeline...")
 print(f"Kafka brokers: {args.get('kafka_bootstrap_servers')}")
 print(f"Topic: {args.get('kafka_topic')}")
 print(f"Iceberg warehouse: {args.get('iceberg_warehouse')}")
@@ -125,7 +125,8 @@ if df.count() > 0:
     # Write data (overwrite mode to avoid duplicates in batch mode)
     final_df.writeTo(table_name).option("mergeSchema", "true").overwritePartitions()
 
-    print(f"Successfully wrote {final_df.count()} records to Iceberg table: {table_name}")
+    msg = f"Successfully wrote {final_df.count()} records to Iceberg table: {table_name}"
+    print(msg)
 
     # Show sample data
     print("\nSample data written:")

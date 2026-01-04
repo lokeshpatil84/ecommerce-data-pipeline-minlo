@@ -50,8 +50,10 @@ jobs:
 
       - name: Validate Docker Compose
         run: |
+          # Docker Compose V2 is built-in (docker compose), not docker-compose Python package
+          docker compose version
           cd docker
-          docker compose config
+          docker compose -f docker-compose.yml config > /dev/null
           echo "Docker Compose valid"
 
       - name: Validate JSON configs

@@ -24,13 +24,13 @@ for i in range(5):
     total_amount = round(random.uniform(10, 1000), 2)
     status = random.choice(statuses)
     address = f"Test Address {random.randint(1, 1000)}"
-    
+
     cursor.execute("""
         INSERT INTO orders (customer_id, total_amount, status, shipping_address)
         VALUES (%s, %s, %s, %s)
         RETURNING order_id
     """, (customer_id, total_amount, status, address))
-    
+
     order_id = cursor.fetchone()[0]
     conn.commit()
     print(f"Created order #{order_id}: {total_amount} - {status}")

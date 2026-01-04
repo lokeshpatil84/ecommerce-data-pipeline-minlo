@@ -44,7 +44,7 @@ conn.commit()
 
 cursor.execute("""
     INSERT INTO orders (customer_id, total_amount, status, shipping_address)
-    VALUES 
+    VALUES
         (1, 99.99, 'pending', '123 Main St'),
         (2, 149.50, 'processing', '456 Oak Ave'),
         (3, 75.00, 'shipped', '789 Pine Rd')

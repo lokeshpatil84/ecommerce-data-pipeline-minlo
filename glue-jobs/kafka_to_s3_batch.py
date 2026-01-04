@@ -6,7 +6,7 @@ import sys
 import os
 from pyspark.context import SparkContext
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import *
+from pyspark.sql.functions import col, from_json
 from pyspark.sql.types import *
 
 # Parse command line arguments
@@ -74,7 +74,7 @@ if kafka_df.count() > 0:
         col("timestamp"),
         col("topic")
     )
-    
+
     # Select columns
     result_df = parsed_df.select(
         col("data.order_id"),
@@ -86,24 +86,24 @@ if kafka_df.count() > 0:
         col("timestamp").alias("kafka_timestamp"),
         col("topic")
     )
-    
+
     print(f"Parsed {result_df.count()} records")
-    
+
     # Write to Parquet in S3
     output_path = f"{warehouse_path}orders_parquet/"
     print(f"Writing to: {output_path}")
-    
+
     result_df.coalesce(1).write \
         .mode("append") \
         .parquet(output_path)
-    
-    print(f"✅ Successfully wrote data to {output_path}")
-    
+
+    print(f"Successfully wrote data to {output_path}")
+
     # List output
     print("\nOutput files:")
     result_df.printSchema()
 else:
-    print("⚠️ No messages found in Kafka topic")
+    print("No messages found in Kafka topic")
 
 spark.stop()
 print("Job completed!")

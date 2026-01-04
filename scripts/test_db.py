@@ -17,4 +17,3 @@ cursor.close()
 conn.close()
 print(f"Database connection successful: {count} orders")
 sys.exit(0)
-

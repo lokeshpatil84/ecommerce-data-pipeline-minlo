@@ -53,4 +53,3 @@ conn.close()
 print()
 print("Pipeline test completed!")
 sys.exit(0)
-

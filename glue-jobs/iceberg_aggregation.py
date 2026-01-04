@@ -80,4 +80,3 @@ daily_stats.writeTo(agg_table) \
 print(f"Aggregated {daily_stats.count()} daily statistics")
 
 job.commit()
-

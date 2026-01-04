@@ -151,4 +151,3 @@ query = streaming_df.writeStream \
 print("Streaming query started. Waiting for data...")
 query.awaitTermination()
 print("Pipeline completed.")
-

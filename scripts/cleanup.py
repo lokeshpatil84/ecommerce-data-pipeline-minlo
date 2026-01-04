@@ -16,4 +16,3 @@ conn.commit()
 cursor.close()
 conn.close()
 print(f"Cleaned up {deleted} test records")
-

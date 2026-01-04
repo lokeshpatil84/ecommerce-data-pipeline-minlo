@@ -36,4 +36,3 @@ for check, value in quality_checks.items():
         print(f"WARNING: Data quality issue detected in {check}")
 
 job.commit()
-

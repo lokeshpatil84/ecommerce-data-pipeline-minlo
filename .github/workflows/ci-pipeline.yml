@@ -11,7 +11,6 @@ env:
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
-  # Job 1: Test the complete CDC pipeline
   pipeline-test:
     runs-on: ubuntu-latest
     steps:
@@ -33,41 +32,38 @@ jobs:
         working-directory: ./docker
         run: |
           echo "Starting Docker services..."
-          docker-compose up -d
+          docker compose up -d
 
       - name: Wait for services to be ready
         run: |
           echo "Waiting for services to start (60 seconds)..."
           sleep 60
 
-          # Verify PostgreSQL is running
           echo "Checking PostgreSQL..."
           timeout 10 bash -c 'until docker exec ecommerce-postgres pg_isready -U postgres; do sleep 1; done' || {
-            echo "❌ PostgreSQL failed to start"
-            docker-compose logs postgres
+            echo "PostgreSQL failed to start"
+            docker compose logs postgres
             exit 1
           }
-          echo "✅ PostgreSQL is ready"
+          echo "PostgreSQL is ready"
 
-          # Verify Kafka is running
           echo "Checking Kafka..."
           timeout 30 bash -c 'until docker exec kafka kafka-broker-api-versions --bootstrap-server localhost:9092; do sleep 1; done' || {
-            echo "❌ Kafka failed to start"
-            docker-compose logs kafka
+            echo "Kafka failed to start"
+            docker compose logs kafka
             exit 1
           }
-          echo "✅ Kafka is ready"
+          echo "Kafka is ready"
 
-          # Verify Debezium is running
           echo "Checking Debezium..."
           timeout 20 bash -c 'until curl -s http://localhost:8083/; do sleep 1; done' || {
-            echo "❌ Debezium failed to start"
-            docker-compose logs debezium
+            echo "Debezium failed to start"
+            docker compose logs debezium
             exit 1
           }
-          echo "✅ Debezium is ready"
+          echo "Debezium is ready"
 
-          echo "✅ All services are running!"
+          echo "All services are running!"
 
       - name: Register Debezium CDC connector
         run: |
@@ -76,19 +72,17 @@ jobs:
             -H "Content-Type: application/json" \
             -d @config/debezium-config.json
           echo ""
-          echo "✅ Connector registered"
+          echo "Connector registered"
 
-          # Wait for connector to start
           sleep 10
 
-          # Verify connector is running
           CONNECTOR_STATUS=$(curl -s http://localhost:8083/connectors/postgres-connector/status)
           echo "Connector status: $CONNECTOR_STATUS"
 
           if echo "$CONNECTOR_STATUS" | grep -q "RUNNING"; then
-            echo "✅ Connector is RUNNING"
+            echo "Connector is RUNNING"
           else
-            echo "❌ Connector failed to start"
+            echo "Connector failed to start"
             exit 1
           fi
 
@@ -101,20 +95,18 @@ jobs:
           (2, 149.99, 'processing', 'Test Address 2'),
           (3, 299.99, 'shipped', 'Test Address 3');
           "
-          echo "✅ Test data inserted"
+          echo "Test data inserted"
 
-          # Wait for CDC events to appear in Kafka
           echo "Waiting for CDC events..."
           sleep 10
 
-          # Verify CDC events in Kafka
           EVENTS=$(docker exec kafka kafka-console-consumer --bootstrap-server kafka:9092 --topic dbserver1.ecommerce.orders --from-beginning --max-messages 3 2>/dev/null | grep -c "order_id" || echo "0")
           echo "CDC Events captured: $EVENTS"
 
           if [ "$EVENTS" -gt 0 ]; then
-            echo "✅ CDC pipeline is working correctly!"
+            echo "CDC pipeline is working correctly!"
           else
-            echo "❌ No CDC events captured"
+            echo "No CDC events captured"
             exit 1
           fi
 
@@ -123,10 +115,9 @@ jobs:
         working-directory: ./docker
         run: |
           echo "Cleaning up Docker services..."
-          docker-compose down -v
-          echo "✅ Cleanup complete"
+          docker compose down -v
+          echo "Cleanup complete"
 
-  # Job 2: Validate Docker and configuration files
   config-validation:
     runs-on: ubuntu-latest
     steps:
@@ -136,21 +127,20 @@ jobs:
       - name: Validate docker-compose.yml
         run: |
           echo "Validating docker-compose.yml..."
-          cd docker && docker-compose config
-          echo "✅ docker-compose.yml is valid"
+          cd docker && docker compose config
+          echo "docker-compose.yml is valid"
 
       - name: Validate Debezium configuration
         run: |
           echo "Validating Debezium configuration..."
           if [ -f "config/debezium-config.json" ]; then
-            # Check if JSON is valid
             python3 -c "import json; json.load(open('config/debezium-config.json'))" || {
-              echo "❌ Invalid JSON in debezium-config.json"
+              echo "Invalid JSON in debezium-config.json"
               exit 1
             }
-            echo "✅ Debezium configuration is valid"
+            echo "Debezium configuration is valid"
           else
-            echo "❌ debezium-config.json not found"
+            echo "debezium-config.json not found"
             exit 1
           fi
 
@@ -159,24 +149,23 @@ jobs:
           echo "Validating Kafka topics configuration..."
           if [ -f "config/kafka-topics.json" ]; then
             python3 -c "import json; json.load(open('config/kafka-topics.json'))" || {
-              echo "❌ Invalid JSON in kafka-topics.json"
+              echo "Invalid JSON in kafka-topics.json"
               exit 1
             }
-            echo "✅ Kafka topics configuration is valid"
+            echo "Kafka topics configuration is valid"
           else
-            echo "⚠️ kafka-topics.json not found (optional)"
+            echo "kafka-topics.json not found (optional)"
           fi
 
       - name: Validate PostgreSQL initialization
         run: |
           echo "Validating PostgreSQL initialization..."
           if [ -f "docker/postgres/init.sql" ]; then
-            echo "✅ PostgreSQL init.sql found"
+            echo "PostgreSQL init.sql found"
           else
-            echo "⚠️ docker/postgres/init.sql not found (may be auto-created)"
+            echo "docker/postgres/init.sql not found (may be auto-created)"
           fi
 
-  # Job 3: Security scanning (optional)
   security-scan:
     runs-on: ubuntu-latest
     steps:
@@ -192,14 +181,13 @@ jobs:
           format: 'table'
           exit-code: '1'
 
-      - name: Check for敏感信息泄露
+      - name: Check for sensitive information
         run: |
           echo "Checking for sensitive information..."
-          # Check for hardcoded passwords (basic check)
           if grep -r "password.*postgres123" . --include="*.yml" --include="*.yaml" --include="*.json" 2>/dev/null | grep -v ".git" | grep -v "docker-compose"; then
-            echo "⚠️ Potential hardcoded password found"
+            echo "Potential hardcoded password found"
           else
-            echo "✅ No obvious hardcoded passwords found"
+            echo "No obvious hardcoded passwords found"
           fi
 
       - name: Validate Docker image security

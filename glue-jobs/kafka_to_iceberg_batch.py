@@ -16,8 +16,8 @@ i = 0
 while i < len(argv):
     if argv[i].startswith('--'):
         key = argv[i][2:]
-        if i + 1 < len(argv) and not argv[i+1].startswith('--'):
-            args[key] = argv[i+1]
+        if i + 1 < len(argv) and not argv[i + 1].startswith("--"):
+            args[key] = argv[i + 1]
             i += 2
         else:
             args[key] = 'true'
@@ -137,4 +137,3 @@ else:
 
 print("Batch job completed!")
 spark.stop()
-

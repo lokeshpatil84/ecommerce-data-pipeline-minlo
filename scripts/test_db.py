@@ -8,7 +8,7 @@ conn = psycopg2.connect(
     port=5432,
     database="ecommerce",
     user="postgres",
-    password="postgres123"
+    password="postgres123",
 )
 cursor = conn.cursor()
 cursor.execute("SELECT COUNT(*) FROM orders")
@@ -17,4 +17,3 @@ cursor.close()
 conn.close()
 print(f"Database connection successful: {count} orders")
 sys.exit(0)
-

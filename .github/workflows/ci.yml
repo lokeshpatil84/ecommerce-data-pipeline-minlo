@@ -28,6 +28,10 @@ jobs:
           python -m py_compile glue-jobs/*.py scripts/*.py
           echo "✓ Python syntax valid"
         
+      - name: Run flake8
+        run: |
+          flake8 glue-jobs/ scripts/ --max-line-length=100 --ignore=E501,W503
+        
       - name: Check formatting with black
         run: |
           black --check glue-jobs/ scripts/

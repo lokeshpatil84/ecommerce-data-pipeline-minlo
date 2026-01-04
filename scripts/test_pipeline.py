@@ -13,7 +13,7 @@ conn = psycopg2.connect(
     port=5432,
     database="ecommerce",
     user="postgres",
-    password="postgres123"
+    password="postgres123",
 )
 cursor = conn.cursor()
 
@@ -25,11 +25,14 @@ for i in range(5):
     status = random.choice(statuses)
     address = f"Test Address {random.randint(1, 1000)}"
 
-    cursor.execute("""
+    cursor.execute(
+        """
         INSERT INTO orders (customer_id, total_amount, status, shipping_address)
         VALUES (%s, %s, %s, %s)
         RETURNING order_id
-    """, (customer_id, total_amount, status, address))
+    """,
+        (customer_id, total_amount, status, address),
+    )
 
     order_id = cursor.fetchone()[0]
     conn.commit()
@@ -53,4 +56,3 @@ conn.close()
 print()
 print("Pipeline test completed!")
 sys.exit(0)
-

@@ -2,6 +2,7 @@
 Simple Batch Kafka to Parquet Job
 Processes Kafka messages and writes to local/parquet format (no Iceberg for testing)
 """
+
 import sys
 import os
 from pyspark.context import SparkContext
@@ -14,22 +15,22 @@ args = {}
 argv = sys.argv[1:]
 i = 0
 while i < len(argv):
-    if argv[i].startswith('--'):
+    if argv[i].startswith("--"):
         key = argv[i][2:]
-        if i + 1 < len(argv) and not argv[i+1].startswith('--'):
-            args[key] = argv[i+1]
+        if i + 1 < len(argv) and not argv[i + 1].startswith("--"):
+            args[key] = argv[i + 1]
             i += 2
         else:
-            args[key] = 'true'
+            args[key] = "true"
             i += 1
     else:
         i += 1
 
 # Initialize Spark
 sc = SparkContext()
-spark = SparkSession.builder \
-    .appName(args.get('JOB_NAME', 'kafka-to-parquet')) \
-    .getOrCreate()
+spark = SparkSession.builder.appName(
+    args.get("JOB_NAME", "kafka-to-parquet")
+).getOrCreate()
 
 print("Starting Kafka to Parquet pipeline...")
 print(f"Kafka brokers: {args.get('kafka_bootstrap_servers')}")
@@ -37,29 +38,29 @@ print(f"Topic: {args.get('kafka_topic')}")
 
 # Read batch from Kafka
 kafka_options = {
-    "kafka.bootstrap.servers": args.get('kafka_bootstrap_servers'),
-    "subscribe": args.get('kafka_topic'),
+    "kafka.bootstrap.servers": args.get("kafka_bootstrap_servers"),
+    "subscribe": args.get("kafka_topic"),
     "startingOffsets": "earliest",
     "endingOffsets": "latest",
-    "kafka.security.protocol": "PLAINTEXT"
+    "kafka.security.protocol": "PLAINTEXT",
 }
 
 # Define schema for CDC events
-cdc_schema = StructType([
-    StructField("order_id", IntegerType(), True),
-    StructField("customer_id", IntegerType(), True),
-    StructField("order_date", StringType(), True),
-    StructField("status", StringType(), True),
-    StructField("total_amount", StringType(), True),
-    StructField("shipping_address", StringType(), True),
-    StructField("created_at", StringType(), True),
-    StructField("updated_at", StringType(), True)
-])
+cdc_schema = StructType(
+    [
+        StructField("order_id", IntegerType(), True),
+        StructField("customer_id", IntegerType(), True),
+        StructField("order_date", StringType(), True),
+        StructField("status", StringType(), True),
+        StructField("total_amount", StringType(), True),
+        StructField("shipping_address", StringType(), True),
+        StructField("created_at", StringType(), True),
+        StructField("updated_at", StringType(), True),
+    ]
+)
 
 # Read from Kafka
-df = spark.read.format("kafka") \
-    .options(**kafka_options) \
-    .load()
+df = spark.read.format("kafka").options(**kafka_options).load()
 
 print(f"Read {df.count()} messages from Kafka")
 
@@ -79,7 +80,7 @@ if df.count() > 0:
         col("shipping_address"),
         col("created_at"),
         col("updated_at"),
-        current_timestamp().alias("processed_time")
+        current_timestamp().alias("processed_time"),
     ).filter(col("order_id").isNotNull())
 
     print(f"Parsed {final_df.count()} valid records")
@@ -89,6 +90,7 @@ if df.count() > 0:
 
     # Delete existing data
     import shutil
+
     if os.path.exists(output_path):
         shutil.rmtree(output_path)
 
@@ -111,4 +113,3 @@ else:
 
 print("\nBatch job completed!")
 spark.stop()
-

@@ -8,7 +8,7 @@ conn = psycopg2.connect(
     port=5432,
     database="postgres",
     user="postgres",
-    password="postgres123"
+    password="postgres123",
 )
 conn.autocommit = True
 cursor = conn.cursor()
@@ -26,11 +26,12 @@ conn = psycopg2.connect(
     port=5432,
     database="ecommerce",
     user="postgres",
-    password="postgres123"
+    password="postgres123",
 )
 cursor = conn.cursor()
 
-cursor.execute("""
+cursor.execute(
+    """
     CREATE TABLE IF NOT EXISTS orders (
         order_id SERIAL PRIMARY KEY,
         customer_id INTEGER NOT NULL,
@@ -39,17 +40,20 @@ cursor.execute("""
         total_amount DECIMAL(10, 2) NOT NULL,
         shipping_address TEXT
     )
-""")
+"""
+)
 conn.commit()
 
-cursor.execute("""
+cursor.execute(
+    """
     INSERT INTO orders (customer_id, total_amount, status, shipping_address)
     VALUES
         (1, 99.99, 'pending', '123 Main St'),
         (2, 149.50, 'processing', '456 Oak Ave'),
         (3, 75.00, 'shipped', '789 Pine Rd')
     ON CONFLICT DO NOTHING
-""")
+"""
+)
 conn.commit()
 
 cursor.execute("SELECT COUNT(*) FROM orders")
@@ -60,4 +64,3 @@ conn.close()
 
 print(f"Database setup complete: {count} orders")
 sys.exit(0)
-

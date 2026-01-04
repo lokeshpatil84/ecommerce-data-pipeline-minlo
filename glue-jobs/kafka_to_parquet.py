@@ -31,7 +31,7 @@ spark = SparkSession.builder \
     .appName(args.get('JOB_NAME', 'kafka-to-parquet')) \
     .getOrCreate()
 
-print(f"Starting Kafka to Parquet pipeline...")
+print("Starting Kafka to Parquet pipeline...")
 print(f"Kafka brokers: {args.get('kafka_bootstrap_servers')}")
 print(f"Topic: {args.get('kafka_topic')}")
 
@@ -82,25 +82,25 @@ if df.count() > 0:
         current_timestamp().alias("processed_time")
     ).filter(col("order_id").isNotNull())
 
-    print(f"Parsed {final_df.count()} valid records")
-    
+    print(f"Parsed {final_df.count()} valid valid records")
+
     # Write to local parquet file
     output_path = "/workspace/warehouse/orders_parquet"
-    
+
     # Delete existing data
     import shutil
     if os.path.exists(output_path):
         shutil.rmtree(output_path)
-    
+
     # Write parquet
     final_df.write.mode("overwrite").parquet(output_path)
-    
+
     print(f"Successfully wrote {final_df.count()} records to parquet: {output_path}")
-    
+
     # Show sample data
     print("\nSample data written:")
     spark.read.parquet(output_path).show()
-    
+
     # List files
     print("\nFiles created:")
     for root, dirs, files in os.walk(output_path):

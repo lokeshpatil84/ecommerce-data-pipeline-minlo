@@ -4,10 +4,9 @@ Simple batch job to read from Kafka and write to MinIO/S3
 """
 import sys
 import os
-from pyspark.context import SparkContext
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import col, from_json
-from pyspark.sql.types import *
+from pyspark.sql.types import StructType, StructField, IntegerType, StringType, BigIntType
 
 # Parse command line arguments
 args = {}
@@ -31,7 +30,7 @@ s3_access_key = os.environ.get("AWS_ACCESS_KEY_ID", "admin")
 s3_secret_key = os.environ.get("AWS_SECRET_ACCESS_KEY", "admin123")
 warehouse_path = args.get('iceberg_warehouse', 's3a://warehouse/')
 
-print(f"Starting Kafka to S3 batch job...")
+print("Starting Kafka to S3 batch job...")
 print(f"S3 Endpoint: {s3_endpoint}")
 print(f"Warehouse: {warehouse_path}")
 
@@ -68,9 +67,17 @@ print(f"Total Kafka messages: {kafka_df.count()}")
 
 if kafka_df.count() > 0:
     # Parse JSON values
+    order_schema = StructType([
+        StructField("order_id", IntegerType(), True),
+        StructField("customer_id", IntegerType(), True),
+        StructField("order_date", BigIntType(), True),
+        StructField("status", StringType(), True),
+        StructField("total_amount", StringType(), True),
+        StructField("shipping_address", StringType(), True)
+    ])
     parsed_df = kafka_df.select(
         col("key").cast("string").alias("key"),
-        from_json(col("value").cast("string"), "order_id INT, customer_id INT, order_date BIGINT, status STRING, total_amount STRING, shipping_address STRING").alias("data"),
+        from_json(col("value").cast("string"), order_schema).alias("data"),
         col("timestamp"),
         col("topic")
     )

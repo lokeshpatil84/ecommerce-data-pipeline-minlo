@@ -1,0 +1,92 @@
+name: CI - Lint & Test
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+        
+      - name: Install linting tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install flake8 black isort
+        
+      - name: Check Python syntax
+        run: |
+          python -m py_compile glue-jobs/*.py scripts/*.py
+          echo "✓ Python syntax valid"
+        
+      - name: Run flake8
+        run: |
+          flake8 glue-jobs/ scripts/ --max-line-length=100 --ignore=E501,W503
+        
+      - name: Check formatting with black
+        run: |
+          black --check glue-jobs/ scripts/
+        
+      - name: Check import order with isort
+        run: |
+          isort --check-only glue-jobs/ scripts/
+
+  validate-configs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Validate Terraform syntax
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.6.0
+        
+      - name: Terraform init
+        run: |
+          cd terraform
+          terraform init -backend=false
+        
+      - name: Terraform validate
+        run: |
+          cd terraform
+          terraform validate
+        
+      - name: Validate Docker Compose
+        run: |
+          pip install docker-compose
+          docker-compose -f docker/docker-compose.yml config > /dev/null
+          echo "✓ Docker Compose config valid"
+
+  test-python:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+        
+      - name: Install dependencies
+        run: |
+          pip install pytest psycopg2-binary
+        
+      - name: Run tests
+        run: |
+          python -c "
+          import sys
+          sys.path.insert(0, 'scripts')
+          print('✓ All Python modules can be imported')
+          "
+

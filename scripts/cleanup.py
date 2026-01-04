@@ -11,7 +11,7 @@ conn = psycopg2.connect(
 )
 cursor = conn.cursor()
 cursor.execute("DELETE FROM orders WHERE order_id > 3")
-deleted = cursor.rowCount
+deleted = cursor.rowcount
 conn.commit()
 cursor.close()
 conn.close()

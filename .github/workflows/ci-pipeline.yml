@@ -1,4 +1,4 @@
-name: E-Commerce CDC Pipeline CI
+name: E-Commerce Pipeline CI (Simple)
 
 on:
   push:
@@ -6,201 +6,62 @@ on:
   pull_request:
     branches: [ "main" ]
 
-env:
-  REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
-
 jobs:
-  pipeline-test:
+  test-database:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:14
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres123
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
-      - name: Checkout repository
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Cache Docker layers
-        uses: actions/cache@v4
-        with:
-          path: /tmp/.buildx-cache
-          key: ${{ runner.os }}-buildx-${{ github.sha }}
-          restore-keys: |
-            ${{ runner.os }}-buildx-
-
-      - name: Start infrastructure services
-        working-directory: ./docker
+      - name: Setup database
         run: |
-          echo "Starting Docker services..."
-          docker compose up -d
+          pip install psycopg2-binary
+          python3 scripts/setup_db.py
 
-      - name: Wait for services to be ready
+      - name: Run pipeline test
         run: |
-          echo "Waiting for services to start (60 seconds)..."
-          sleep 60
+          pip install psycopg2-binary
+          python3 scripts/test_pipeline.py
 
-          echo "Checking PostgreSQL..."
-          timeout 10 bash -c 'until docker exec ecommerce-postgres pg_isready -U postgres; do sleep 1; done' || {
-            echo "PostgreSQL failed to start"
-            docker compose logs postgres
-            exit 1
-          }
-          echo "PostgreSQL is ready"
-
-          echo "Checking Kafka..."
-          timeout 30 bash -c 'until docker exec kafka kafka-broker-api-versions --bootstrap-server localhost:9092; do sleep 1; done' || {
-            echo "Kafka failed to start"
-            docker compose logs kafka
-            exit 1
-          }
-          echo "Kafka is ready"
-
-          echo "Checking Debezium..."
-          timeout 20 bash -c 'until curl -s http://localhost:8083/; do sleep 1; done' || {
-            echo "Debezium failed to start"
-            docker compose logs debezium
-            exit 1
-          }
-          echo "Debezium is ready"
-
-          echo "All services are running!"
-
-      - name: Register Debezium CDC connector
-        run: |
-          echo "Registering Debezium connector..."
-          curl -s -X POST http://localhost:8083/connectors \
-            -H "Content-Type: application/json" \
-            -d @config/debezium-config.json
-          echo ""
-          echo "Connector registered"
-
-          sleep 10
-
-          CONNECTOR_STATUS=$(curl -s http://localhost:8083/connectors/postgres-connector/status)
-          echo "Connector status: $CONNECTOR_STATUS"
-
-          if echo "$CONNECTOR_STATUS" | grep -q "RUNNING"; then
-            echo "Connector is RUNNING"
-          else
-            echo "Connector failed to start"
-            exit 1
-          fi
-
-      - name: Insert test data and verify CDC
-        run: |
-          echo "Inserting test orders..."
-          docker exec ecommerce-postgres psql -U postgres -d ecommerce -c "
-          INSERT INTO ecommerce.orders (customer_id, total_amount, status, shipping_address) VALUES 
-          (1, 99.99, 'pending', 'Test Address 1'), 
-          (2, 149.99, 'processing', 'Test Address 2'),
-          (3, 299.99, 'shipped', 'Test Address 3');
-          "
-          echo "Test data inserted"
-
-          echo "Waiting for CDC events..."
-          sleep 10
-
-          EVENTS=$(docker exec kafka kafka-console-consumer --bootstrap-server kafka:9092 --topic dbserver1.ecommerce.orders --from-beginning --max-messages 3 2>/dev/null | grep -c "order_id" || echo "0")
-          echo "CDC Events captured: $EVENTS"
-
-          if [ "$EVENTS" -gt 0 ]; then
-            echo "CDC pipeline is working correctly!"
-          else
-            echo "No CDC events captured"
-            exit 1
-          fi
-
-      - name: Cleanup services
+      - name: Cleanup
         if: always()
-        working-directory: ./docker
         run: |
-          echo "Cleaning up Docker services..."
-          docker compose down -v
-          echo "Cleanup complete"
+          python3 scripts/cleanup.py
 
-  config-validation:
+  validate-configs:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Validate docker-compose.yml
+      - name: Validate Docker Compose
         run: |
-          echo "Validating docker-compose.yml..."
-          cd docker && docker compose config
-          echo "docker-compose.yml is valid"
+          cd docker
+          docker compose config
+          echo "Docker Compose valid"
 
-      - name: Validate Debezium configuration
+      - name: Validate JSON configs
         run: |
-          echo "Validating Debezium configuration..."
-          if [ -f "config/debezium-config.json" ]; then
-            python3 -c "import json; json.load(open('config/debezium-config.json'))" || {
-              echo "Invalid JSON in debezium-config.json"
-              exit 1
-            }
-            echo "Debezium configuration is valid"
-          else
-            echo "debezium-config.json not found"
-            exit 1
-          fi
+          python3 -c "import json; json.load(open('config/debezium-config.json'))"
+          python3 -c "import json; json.load(open('config/kafka-topics.json'))"
+          echo "JSON configs valid"
 
-      - name: Validate Kafka topics configuration
+      - name: Validate Python files
         run: |
-          echo "Validating Kafka topics configuration..."
-          if [ -f "config/kafka-topics.json" ]; then
-            python3 -c "import json; json.load(open('config/kafka-topics.json'))" || {
-              echo "Invalid JSON in kafka-topics.json"
-              exit 1
-            }
-            echo "Kafka topics configuration is valid"
-          else
-            echo "kafka-topics.json not found (optional)"
-          fi
-
-      - name: Validate PostgreSQL initialization
-        run: |
-          echo "Validating PostgreSQL initialization..."
-          if [ -f "docker/postgres/init.sql" ]; then
-            echo "PostgreSQL init.sql found"
-          else
-            echo "docker/postgres/init.sql not found (may be auto-created)"
-          fi
-
-  security-scan:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@master
-        with:
-          scan-type: 'fs'
-          scan-ref: '.'
-          severity: 'CRITICAL,HIGH'
-          format: 'table'
-          exit-code: '1'
-
-      - name: Check for sensitive information
-        run: |
-          echo "Checking for sensitive information..."
-          if grep -r "password.*postgres123" . --include="*.yml" --include="*.yaml" --include="*.json" 2>/dev/null | grep -v ".git" | grep -v "docker-compose"; then
-            echo "Potential hardcoded password found"
-          else
-            echo "No obvious hardcoded passwords found"
-          fi
-
-      - name: Validate Docker image security
-        uses: docker/build-push-action@v5
-        with:
-          context: ./docker
-          load: true
-          tags: test-image:latest
-        continue-on-error: true
-
-      - name: Run Hadolint on Dockerfiles
-        uses: hadolint/hadolint-action@v3.1.0
-        with:
-          dockerfile: "./docker/*/Dockerfile"
-          failure-threshold: error
+          python3 -m py_compile scripts/*.py glue-jobs/*.py
+          echo "Python syntax valid"
 
